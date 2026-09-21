@@ -1,43 +1,65 @@
-# Data Preprocessing — Clean, Fast, Reproducible Pipelines
+# GPU Telemetry Pipeline — RAPIDS + Elastic + Grafana
 
-![status](https://img.shields.io/badge/status-ready-brightgreen) ![python](https://img.shields.io/badge/python-3.8%2B-blue)
+A compact observability/data-engineering project that ingests JSONL telemetry, accelerates feature aggregation with RAPIDS cuDF when a GPU is available, indexes records into Elasticsearch, and visualizes the same stream through Kibana/Grafana.
 
-Compact, production-ready data preprocessing utilities demonstrating robust feature engineering, normalization, and signal transforms using NumPy, SciPy and pandas. Designed to be reproducible, well-documented, and ready to integrate into GPU-accelerated training pipelines.
+## Stack
 
-Key features
-- Reproducible feature normalization and scaling pipelines
-- Signal transforms (STFT) examples for time-series data
-- Save/load compressed NumPy artifacts for efficient downstream training
-- Easy to containerize for consistent preprocessing at scale
+RAPIDS cuDF · Elasticsearch · Kibana · Grafana · HBase (optional sink) · Docker Compose · Perl log generator
 
-Tech
-- Python, NumPy, SciPy, pandas
-
-Quickstart
-
-```powershell
-python -m pip install -r requirements.txt
-python preprocess.py sample.csv artifacts/preprocessed.npz
-```
-
-Demo GIF (replace with captured workflow):
-
-![preprocess-demo](./assets/preprocess_demo.gif)
-
-Processing pipeline diagram
+## Pipeline
 
 ```mermaid
-flowchart TD
-	A[Raw CSV] --> B[Load with pandas]
-	B --> C[Numeric selection]
-	C --> D[Normalize (mean/std)]
-	D --> E[STFT]
-	E --> F[Save .npz artifacts]
+flowchart LR
+  A[Perl telemetry generator] --> B[JSONL]
+  B --> C[RAPIDS cuDF aggregator]
+  C --> D[summary.json]
+  B --> E[Elasticsearch bulk index]
+  E --> F[Kibana]
+  E --> G[Grafana]
+  B --> H[optional HBase sink]
 ```
 
-Why this impresses recruiters
-- Clear, reproducible steps showing data hygiene and signal processing knowledge
-- Ready-to-integrate artifacts for GPU training workflows
+## Quickstart
 
-License: MIT
+Generate sample telemetry:
 
+```bash
+perl tools/generate_logs.pl 5000 > sample.jsonl
+```
+
+Run the GPU-aware aggregator:
+
+```bash
+python telemetry_pipeline.py sample.jsonl --summary summary.json
+```
+
+If cuDF is installed, aggregation runs on the GPU; otherwise the script falls back to pandas so the project remains testable on non-GPU machines.
+
+Start the local observability stack:
+
+```bash
+docker compose up -d
+python telemetry_pipeline.py sample.jsonl --elasticsearch http://localhost:9200 --index gpu-telemetry
+```
+
+## Features
+
+- GPU dataframe acceleration through RAPIDS/cuDF
+- pandas fallback for portability
+- throughput/error/latency aggregation by service and GPU
+- Elasticsearch Bulk API indexing
+- Kibana and Grafana services via Compose
+- optional HBase REST sink helper
+- Perl-based synthetic telemetry generator for repeatable demos
+
+## Resume-safe description
+
+Built a GPU-aware telemetry analytics pipeline using RAPIDS cuDF with pandas fallback, Elasticsearch bulk indexing, Kibana/Grafana visualization, and optional HBase persistence; added reproducible synthetic workload generation in Perl.
+
+## Notes
+
+This repo measures and reports values from generated or supplied telemetry. It does not claim production-scale benchmark numbers.
+
+## License
+
+MIT
